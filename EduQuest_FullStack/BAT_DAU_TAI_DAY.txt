@@ -1,0 +1,18 @@
+EDUQUEST - BAT DAU TAI DAY
+==========================
+
+1) Cai .NET 8 SDK: https://dotnet.microsoft.com/download/dotnet/8.0
+2) Cai Flutter SDK va them flutter\bin vao PATH: https://docs.flutter.dev/get-started/install/windows/mobile
+3) Cai Android Studio (Android SDK + Emulator): https://developer.android.com/studio
+4) Mo Android Studio > Device Manager > khoi dong mot Android Emulator.
+5) Nhan dup RUN_ANDROID.bat trong thu muc nay.
+
+Neu chay tren dien thoai that: ket noi PC va dien thoai cung Wi-Fi, bat USB debugging,
+roi nhan dup RUN_ANDROID_PHONE.bat. Neu Firewall hoi, cho phep tren mang Private.
+
+App tu dong tao tai khoan rieng cho moi ban cai dat.
+Tai khoan demo de thu API trong Swagger: student@eduquest.local / Student@123
+API + Swagger: http://localhost:5080/swagger
+Database: backend\eduquest.db (khong xoa neu can giu du lieu).
+
+Can giu cua so API mo trong luc su dung. Lan dau chay can mang de tai cac goi.

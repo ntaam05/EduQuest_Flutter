@@ -1,0 +1,25 @@
+HUONG DAN TAO TAI LIEU CAU HOI EDUQUEST
+
+Câu 1: Flutter được phát triển bởi công ty nào?
+A. Microsoft
+B. Google
+C. Apple
+D. Meta
+Đáp án: B
+Giải thích: Flutter là bộ công cụ giao diện người dùng do Google phát triển.
+
+Câu 2: Widget nào bố trí các phần tử theo chiều dọc trong Flutter?
+A. Row
+B. Stack
+C. Column
+D. Wrap
+Đáp án: C
+Giải thích: Column sắp xếp các widget con theo trục dọc.
+
+Câu 3: Lệnh SQL nào thường dùng để truy vấn dữ liệu?
+A. INSERT
+B. UPDATE
+C. SELECT
+D. DELETE
+Đáp án: C
+Giải thích: SELECT đọc các dòng dữ liệu từ bảng hoặc view.
