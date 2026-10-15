@@ -1,0 +1,79 @@
+Câu 1: Biến trong lập trình dùng để làm gì?
+A. Lưu trữ một giá trị trong bộ nhớ để sử dụng lại
+B. Vẽ giao diện cho ứng dụng
+C. Kết nối mạng Internet
+D. Tăng tốc độ của máy tính
+Đáp án: A
+Giải thích: Biến là một vùng nhớ có tên, dùng để lưu giá trị và có thể thay đổi trong lúc chương trình chạy.
+
+Câu 2: Kiểu dữ liệu nào thường dùng để lưu số nguyên?
+A. string
+B. int
+C. bool
+D. char
+Đáp án: B
+Giải thích: int (integer) là kiểu dữ liệu lưu số nguyên như 1, 25, -7.
+
+Câu 3: Vòng lặp nào phù hợp nhất khi đã biết trước số lần lặp?
+A. for
+B. if
+C. switch
+D. return
+Đáp án: A
+Giải thích: Vòng lặp for thường dùng khi biết trước số lần lặp, ví dụ duyệt từ 0 đến 9.
+
+Câu 4: Kết quả của phép tính 10 % 3 là bao nhiêu?
+A. 0
+B. 3
+C. 1
+D. 3.33
+Đáp án: C
+Giải thích: Toán tử % lấy phần dư. 10 chia 3 được 3 và dư 1.
+
+Câu 5: Câu lệnh nào dùng để rẽ nhánh theo một điều kiện?
+A. for
+B. while
+C. print
+D. if
+Đáp án: D
+Giải thích: Câu lệnh if thực hiện một khối lệnh khi điều kiện đúng.
+
+Câu 6: Trong hầu hết ngôn ngữ lập trình như Python, Java, Dart, chỉ số của phần tử đầu tiên trong mảng là bao nhiêu?
+A. 1
+B. 0
+C. -1
+D. 10
+Đáp án: B
+Giải thích: Chỉ số mảng bắt đầu từ 0, nên phần tử đầu tiên có chỉ số 0.
+
+Câu 7: Hàm (function) là gì?
+A. Một loại biến đặc biệt chỉ chứa số
+B. Một lỗi xảy ra khi chạy chương trình
+C. Một khối lệnh được đặt tên và có thể gọi lại nhiều lần
+D. Một tệp lưu trữ dữ liệu
+Đáp án: C
+Giải thích: Hàm giúp gom các câu lệnh lại để tái sử dụng, tránh viết lặp code.
+
+Câu 8: Kiểu dữ liệu boolean chỉ có thể nhận những giá trị nào?
+A. 0 đến 9
+B. Mọi số thực
+C. Chuỗi ký tự bất kỳ
+D. true hoặc false
+Đáp án: D
+Giải thích: Boolean biểu diễn đúng hoặc sai, thường dùng trong điều kiện.
+
+Câu 9: Trong Python, ký hiệu nào dùng để viết ghi chú (comment) trên một dòng?
+A. //
+B. #
+C. --
+D. /* */
+Đáp án: B
+Giải thích: Trong Python, mọi nội dung sau dấu # trên cùng một dòng được xem là ghi chú.
+
+Câu 10: Toán tử nào dùng để so sánh hai giá trị có bằng nhau hay không trong hầu hết ngôn ngữ?
+A. =
+B. ==
+C. =>
+D. !=
+Đáp án: B
+Giải thích: Dấu = dùng để gán giá trị, còn == dùng để so sánh bằng. Dấu != là so sánh khác.

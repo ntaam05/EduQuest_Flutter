@@ -1,0 +1,12 @@
+# Local database and uploaded user files
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+backend/uploads/
+# Build outputs
+flutter_app/.dart_tool/
+flutter_app/build/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+backend/bin/
+backend/obj/

@@ -1,0 +1,90 @@
+name: doanmon_eduquest
+description: "QuizUp - Ứng dụng học tập và thi trắc nghiệm trực tuyến"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- UI / Material ---
+  cupertino_icons: ^1.0.8
+
+  # --- Fonts ---
+  # Thư viện Google Fonts để sử dụng font đẹp (Inter, Outfit...)
+  google_fonts: ^6.2.1
+
+  # --- Animation ---
+  # Package animation mạnh mẽ, dễ chain nhiều hiệu ứng
+  flutter_animate: ^4.5.0
+  # Package animation chuẩn Material Design (SharedAxis, FadedThrough, etc.)
+  animations: ^2.0.11
+  # Lottie animation cho empty state, success state
+  lottie: ^3.1.2
+
+  # --- SVG ---
+  # Hiển thị file SVG (icon, illustration)
+  flutter_svg: ^2.0.10+1
+
+  # --- Image ---
+  # Cache ảnh từ network tránh load lại mỗi lần
+  cached_network_image: ^3.4.1
+
+  # --- Loading / Skeleton ---
+  # Hiệu ứng shimmer skeleton khi đang load data
+  shimmer: ^3.0.0
+
+  # --- Progress ---
+  # Thanh progress tròn và ngang đẹp
+  percent_indicator: ^4.2.3
+
+  # --- Chart ---
+  # Biểu đồ thống kê (Line chart, Bar chart...)
+  fl_chart: ^0.69.0
+
+  # --- Page Indicator ---
+  # Chấm tròn indicator khi swipe page
+  smooth_page_indicator: ^1.2.0+3
+
+  # --- Spacing ---
+  # Widget Gap() thay thế SizedBox(width/height) cho gọn
+  gap: ^3.0.1
+
+  # --- Navigation ---
+  # Routing hiện đại, hỗ trợ deep link và shell route
+  go_router: ^14.6.1
+
+  # --- State Management ---
+  # Provider đơn giản, phù hợp đồ án
+  provider: ^6.1.2
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
+  signalr_netcore: ^1.4.4
+
+  # --- File ---
+  # Mở dialog chọn file từ thiết bị
+  file_picker: ^8.1.2
+
+  # --- Âm thanh ---
+  # Tiếng bíp đếm ngược / báo hết giờ trong phòng thi
+  audioplayers: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  objective_c: ^9.6.2
+
+dependency_overrides:
+  flutter_plugin_android_lifecycle: 2.0.22
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/sounds/
+
