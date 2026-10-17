@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../models/question.dart';
 import '../models/quiz.dart';
 import '../services/api_client.dart';
+import '../services/local_database.dart';
 
 class QuizProvider extends ChangeNotifier {
   final ApiClient _api = ApiClient.instance;
@@ -40,17 +41,49 @@ class QuizProvider extends ChangeNotifier {
   QuizResult? _lastResult;
   QuizResult? get lastResult => _lastResult;
 
-  QuizProvider() { unawaited(loadQuizzes()); }
+  // Không tự gọi danh sách quiz ở constructor; nhưng vẫn có thể nạp cache SQLite
+  // để ứng dụng có dữ liệu offline theo chuẩn bài học SQLite/SQFlite.
+  QuizProvider() {
+    unawaited(_hydrateLocalQuizzes());
+  }
+
+  Future<void> _hydrateLocalQuizzes() async {
+    try {
+      final cachedRows = await LocalDatabase.instance.loadQuizCache();
+      if (cachedRows.isEmpty) return;
+      _quizzes = cachedRows.map((row) => Quiz.fromJson(row)).toList();
+      notifyListeners();
+    } catch (_) {
+      // Bỏ qua khi cache chưa sẵn sàng.
+    }
+  }
 
   Future<void> loadQuizzes() async {
+    if (!_api.isAuthenticated) {
+      _isLoading = false;
+      _errorMessage = null;
+      notifyListeners();
+      return;
+    }
+
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
     try {
       final rows = await _api.getList('/api/quizzes');
-      _quizzes = rows.map((row) => Quiz.fromJson((row as Map).cast<String, dynamic>())).toList();
+      final mapped = rows.map((row) => Quiz.fromJson((row as Map).cast<String, dynamic>())).toList();
+      _quizzes = mapped;
+      await LocalDatabase.instance.saveQuizCache(
+        mapped.map((quiz) => quiz.toJson()).toList(),
+      );
     } catch (error) {
-      _errorMessage = error.toString();
+      final cached = await LocalDatabase.instance.loadQuizCache();
+      if (cached.isNotEmpty) {
+        _quizzes = cached.map((row) => Quiz.fromJson(row)).toList();
+        _errorMessage = null;
+      } else {
+        _errorMessage = error.toString();
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
