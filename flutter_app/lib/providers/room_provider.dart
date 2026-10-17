@@ -17,7 +17,9 @@ class RoomProvider extends ChangeNotifier {
   // Cache only real quizzes that have come from the API or were just uploaded.
   final Map<String, Quiz> _quizCache = {};
 
-  RoomProvider() { unawaited(loadRooms()); }
+  // Không tự load room ngay từ constructor; chỉ tải khi vào màn hình room hoặc
+  // khi người dùng chủ động refresh/làm mới dữ liệu.
+  RoomProvider();
 
   Room? get currentRoom => _currentRoom;
   List<Room> get rooms => List.unmodifiable(_rooms);
@@ -25,6 +27,12 @@ class RoomProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   Future<void> loadRooms() async {
+    if (!_api.isAuthenticated) {
+      _errorMessage = null;
+      notifyListeners();
+      return;
+    }
+
     try {
       final rows = await _api.getList('/api/rooms');
       final mapped = <Room>[];

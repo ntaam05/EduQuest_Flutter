@@ -5,10 +5,12 @@ import 'package:flutter/foundation.dart';
 import '../data/mock_users.dart';
 import '../models/user.dart';
 import '../services/api_client.dart';
+import '../services/local_database.dart';
 
 class ProfileProvider extends ChangeNotifier {
   final ApiClient _api = ApiClient.instance;
   AppUser _user = currentUser;
+  int _profileRequestVersion = 0;
   bool _isDarkMode = false;
   String _language = 'vi';
   bool _notificationsEnabled = true;
@@ -19,7 +21,22 @@ class ProfileProvider extends ChangeNotifier {
   List<double> _weeklyScores = List<double>.filled(7, 0);
   final List<String> weekDayLabels = const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
-  ProfileProvider() { unawaited(refreshProfile()); }
+  // Không tự gọi API trong constructor. Để phù hợp với bài học SQLite/SQFlite,
+  // app sẽ lấy dữ liệu cache cục bộ nếu có trước khi users tương tác.
+  ProfileProvider() {
+    unawaited(_hydrateLocalProfile());
+  }
+
+  Future<void> _hydrateLocalProfile() async {
+    try {
+      final cached = await LocalDatabase.instance.loadProfileCache();
+      if (cached == null || cached.isEmpty) return;
+      _applyProfile(cached);
+      notifyListeners();
+    } catch (_) {
+      // Bỏ qua nếu cache chưa sẵn sàng.
+    }
+  }
 
   AppUser get user => _user;
   bool get isDarkMode => _isDarkMode;
@@ -32,12 +49,24 @@ class ProfileProvider extends ChangeNotifier {
   int get weeklyCompleted => _weeklyCompleted;
 
   Future<void> refreshProfile() async {
+    if (!_api.isAuthenticated) {
+      _isLoading = false;
+      _errorMessage = null;
+      notifyListeners();
+      return;
+    }
+
+    final requestVersion = ++_profileRequestVersion;
     _isLoading = true;
     notifyListeners();
     try {
       final profile = await _api.get('/api/profile');
+      if (requestVersion != _profileRequestVersion) return;
       _applyProfile(profile);
+      await LocalDatabase.instance.saveProfileCache(profile);
+
       final stats = await _api.get('/api/profile/stats');
+      if (requestVersion != _profileRequestVersion) return;
       _weeklyCompleted = (stats['weekly_completed'] as num?)?.toInt() ?? 0;
       _totalStudyHours = (stats['total_study_hours'] as num?)?.toDouble() ?? 0;
       final rows = (stats['weekly_scores'] as List? ?? const []).whereType<Map>().map((r) => r.cast<String, dynamic>()).toList();
@@ -55,10 +84,17 @@ class ProfileProvider extends ChangeNotifier {
       _weeklyScores = nextScores;
       _errorMessage = null;
     } catch (error) {
+      if (requestVersion != _profileRequestVersion) return;
+      final cached = await LocalDatabase.instance.loadProfileCache();
+      if (cached != null && cached.isNotEmpty) {
+        _applyProfile(cached);
+      }
       _errorMessage = error.toString();
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (requestVersion == _profileRequestVersion) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -89,19 +125,17 @@ class ProfileProvider extends ChangeNotifier {
     unawaited(_persistSettings());
   }
 
-  void updateProfile({String? name, String? avatarEmoji}) {
-    _user = _user.copyWith(name: name ?? _user.name, avatarEmoji: avatarEmoji ?? _user.avatarEmoji);
-    notifyListeners();
-    unawaited(_persistProfile());
-  }
+  Future<void> updateProfile({String? name, String? avatarEmoji}) async {
+    final nextName = (name ?? _user.name).trim();
+    final nextAvatar = (avatarEmoji ?? _user.avatarEmoji ?? '👤').trim();
 
-  Future<void> _persistProfile() async {
     try {
       final json = await _api.put('/api/profile', {
-        'name': _user.name,
-        'avatar_emoji': _user.avatarEmoji,
+        'name': nextName.isEmpty ? _user.name : nextName,
+        'avatar_emoji': nextAvatar.isEmpty ? (_user.avatarEmoji ?? '👤') : nextAvatar,
       });
       _applyProfile(json);
+      await LocalDatabase.instance.saveProfileCache(json);
       notifyListeners();
     } catch (error) {
       _errorMessage = error.toString();
@@ -117,6 +151,7 @@ class ProfileProvider extends ChangeNotifier {
         'language': _language,
       });
       _applyProfile(json);
+      await LocalDatabase.instance.saveProfileCache(json);
       notifyListeners();
     } catch (error) {
       _errorMessage = error.toString();

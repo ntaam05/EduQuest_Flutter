@@ -26,4 +26,17 @@ void main() {
     // Chỉ test app không crash khi khởi động
     expect(find.byType(MaterialApp), findsOneWidget);
   });
+
+  test('Provider mới tạo không tự fetch khi chưa có tương tác user', () {
+    final profileProvider = ProfileProvider();
+    final quizProvider = QuizProvider();
+    final roomProvider = RoomProvider();
+
+    expect(profileProvider.isLoading, isFalse);
+    expect(profileProvider.errorMessage, isNull);
+    expect(quizProvider.isLoading, isFalse);
+    expect(quizProvider.errorMessage, isNull);
+    expect(roomProvider.status, RoomActionStatus.idle);
+    expect(roomProvider.errorMessage, isNull);
+  });
 }

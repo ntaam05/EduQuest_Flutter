@@ -87,45 +87,117 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Future<void> _showEditProfileDialog(BuildContext context, ProfileProvider provider) async {
-    final nameController = TextEditingController(text: provider.user.name);
-    final emojiController = TextEditingController(text: provider.user.avatarEmoji ?? '👤');
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Chỉnh sửa hồ sơ'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              maxLength: 120,
-              decoration: const InputDecoration(labelText: 'Tên hiển thị'),
-            ),
-            TextField(
-              controller: emojiController,
-              maxLength: 16,
-              decoration: const InputDecoration(labelText: 'Avatar (emoji)'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Hủy')),
-          ElevatedButton(
-            onPressed: () {
-              if (nameController.text.trim().isEmpty) return;
-              provider.updateProfile(
-                name: nameController.text.trim(),
-                avatarEmoji: emojiController.text.trim().isEmpty ? '👤' : emojiController.text.trim(),
-              );
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Lưu'),
-          ),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (_) => _EditProfileDialog(provider: provider),
     );
-    nameController.dispose();
-    emojiController.dispose();
+  }
+}
+
+class _EditProfileDialog extends StatefulWidget {
+  const _EditProfileDialog({required this.provider});
+
+  final ProfileProvider provider;
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _emojiController;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.provider.user.name);
+    _emojiController = TextEditingController(text: widget.provider.user.avatarEmoji ?? '👤');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emojiController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final trimmedName = _nameController.text.trim();
+    final trimmedEmoji = _emojiController.text.trim();
+    if (trimmedName.isEmpty || !mounted) return;
+
+    setState(() => _saving = true);
+    try {
+      await widget.provider.updateProfile(
+        name: trimmedName,
+        avatarEmoji: trimmedEmoji.isEmpty ? '👤' : trimmedEmoji,
+      );
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final emojiPreview = _emojiController.text.trim();
+
+    return AlertDialog(
+      title: const Text('Chỉnh sửa hồ sơ'),
+      content: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.7,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _nameController,
+                maxLength: 120,
+                decoration: const InputDecoration(labelText: 'Tên hiển thị'),
+              ),
+              const Gap(kSpaceMD),
+              TextField(
+                controller: _emojiController,
+                maxLength: 16,
+                decoration: const InputDecoration(labelText: 'Avatar (emoji)'),
+              ),
+              const Gap(kSpaceSM),
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Center(
+                  child: Text(
+                    emojiPreview.isEmpty ? '👤' : emojiPreview,
+                    style: const TextStyle(fontSize: 36),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context, rootNavigator: true).pop(),
+          child: const Text('Hủy'),
+        ),
+        ElevatedButton(
+          onPressed: _saving ? null : _save,
+          child: Text(_saving ? 'Đang lưu...' : 'Lưu'),
+        ),
+      ],
+    );
   }
 }
 

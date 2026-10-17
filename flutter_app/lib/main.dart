@@ -11,6 +11,7 @@ import 'providers/quiz_provider.dart';
 import 'providers/upload_provider.dart';
 import 'providers/room_provider.dart';
 import 'providers/profile_provider.dart';
+import 'services/local_database.dart';
 
 Future<void> main() async {
   // Đảm bảo Flutter binding sẵn sàng trước khi chạy app
@@ -22,6 +23,12 @@ Future<void> main() async {
     await ApiClient.instance.initialize();
   } catch (_) {
     // Provider thực hiện retry khi gọi endpoint lần đầu.
+  }
+
+  try {
+    await LocalDatabase.instance.initialize();
+  } catch (_) {
+    // SQLite local cache không bắt buộc phải hoạt động khi app chưa sẵn sàng.
   }
 
   runApp(const _SessionRoot());
