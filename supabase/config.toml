@@ -1,0 +1,5 @@
+project_id = "eduquest"
+
+[functions.eduquest-upload]
+# The function verifies the user's bearer token against Supabase Auth before any privileged action.
+verify_jwt = false

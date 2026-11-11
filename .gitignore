@@ -1,4 +1,11 @@
-
-.idea/
-
-EduQuest_Repo/
+.env
+.env.*
+!.env.example
+.vs/
+supabase/.temp/
+supabase/.branches/
+**/node_modules/
+flutter_app/.dart_tool/
+flutter_app/build/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
