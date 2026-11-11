@@ -25,14 +25,13 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen> {
   final RoomRealtimeClient _realtime = RoomRealtimeClient();
   String? _connectedRoomId;
   bool _starting = false;
+  bool _refreshing = false;
   bool _initialLoad = true;
   String? _loadError;
 
   @override
   void initState() {
     super.initState();
-    _realtime.on('QuestionStarted', _onQuestionStarted);
-    _realtime.on('RoomUpdated', _onRealtimeRoomUpdated);
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => _refresh());
   }
@@ -40,58 +39,37 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen> {
   @override
   void dispose() {
     _pollTimer?.cancel();
-    final roomId = _connectedRoomId;
-    if (roomId != null) unawaited(_realtime.leaveRoom(roomId));
     unawaited(_realtime.dispose());
     super.dispose();
   }
 
   Future<void> _refresh() async {
-    if (!mounted) return;
-    final roomProvider = context.read<RoomProvider>();
-    // Lần đầu tra theo mã phòng; các lần poll sau dùng GET /api/rooms/{id} cho nhẹ.
-    final current = roomProvider.currentRoom;
-    final knownId = _connectedRoomId ??
-        (current != null && current.code == widget.roomCode.toUpperCase() ? current.id : null);
-    final room = knownId != null
-        ? await roomProvider.refreshRoomById(knownId)
-        : await roomProvider.loadRoomByCode(widget.roomCode);
-    if (!mounted) return;
-    setState(() {
-      _initialLoad = false;
-      _loadError = room == null ? context.read<RoomProvider>().errorMessage : null;
-    });
-    if (room == null) return;
-    if (room.status != RoomStatus.waiting) {
-      context.go(AppRoutes.roomGamePath(room.code));
-      return;
-    }
-    if (_connectedRoomId != room.id) {
-      _connectedRoomId = room.id;
-      try {
-        final snapshot = await _realtime.joinRoom(room.id);
-        if (!mounted) return;
-        if (snapshot['mode']?.toString() != 'lobby') {
-          context.go(AppRoutes.roomGamePath(room.code));
-        }
-      } catch (_) {
-        // The two-second REST poll remains active if SignalR is unavailable.
-        _connectedRoomId = null;
+    if (!mounted || _refreshing) return;
+    _refreshing = true;
+    try {
+      final roomProvider = context.read<RoomProvider>();
+      final current = roomProvider.currentRoom;
+      final knownId = _connectedRoomId ??
+          (current != null && current.code == widget.roomCode.toUpperCase() ? current.id : null);
+      final room = knownId != null
+          ? await roomProvider.refreshRoomById(knownId)
+          : await roomProvider.loadRoomByCode(widget.roomCode);
+      if (!mounted) return;
+      setState(() {
+        _initialLoad = false;
+        _loadError = room == null ? roomProvider.errorMessage : null;
+      });
+      if (room == null) return;
+      if (room.status != RoomStatus.waiting) {
+        context.go(AppRoutes.roomGamePath(room.code));
+        return;
       }
-    }
-  }
-
-
-  void _onQuestionStarted(Map<String, dynamic> event) {
-    if (!mounted || event['room_code']?.toString().toUpperCase() != widget.roomCode.toUpperCase()) return;
-    context.go(AppRoutes.roomGamePath(widget.roomCode));
-  }
-
-  void _onRealtimeRoomUpdated(Map<String, dynamic> event) {
-    if (!mounted || event['code']?.toString().toUpperCase() != widget.roomCode.toUpperCase()) return;
-    final status = event['status']?.toString().toLowerCase();
-    if (status != null && status != 'waiting') {
-      context.go(AppRoutes.roomGamePath(widget.roomCode));
+      if (_connectedRoomId == null) {
+        _connectedRoomId = room.id;
+        _realtime.subscribe(room.id, () => unawaited(_refresh()));
+      }
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -117,7 +95,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen> {
     final provider = context.watch<RoomProvider>();
     final room = provider.currentRoom?.code == widget.roomCode.toUpperCase() ? provider.currentRoom : null;
     final me = context.watch<ProfileProvider>().user;
-    final isHost = room != null && int.tryParse(room.host.id) == int.tryParse(me.id);
+    final isHost = room != null && room.host.id == me.id;
     final theme = Theme.of(context);
 
     if (room == null && _initialLoad) {

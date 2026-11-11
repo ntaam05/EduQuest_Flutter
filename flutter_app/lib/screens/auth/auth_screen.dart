@@ -1,5 +1,5 @@
 // lib/screens/auth/auth_screen.dart
-// Màn hình Đăng nhập / Đăng ký — gọi POST /api/auth/login và /api/auth/register.
+// Màn hình đăng ký và đăng nhập bằng Supabase Auth.
 // Đăng nhập thành công: ApiClient đổi trạng thái đăng nhập, router tự chuyển về Trang chủ.
 
 import 'package:flutter/material.dart';
@@ -27,6 +27,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _obscure = true;
   bool _loading = false;
   String? _error;
+  String? _notice;
 
   @override
   void initState() {
@@ -49,16 +50,8 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() {
       _isLogin = !_isLogin;
       _error = null;
+      _notice = null;
       _formKey.currentState?.reset();
-    });
-  }
-
-  void _fillDemoAccount() {
-    setState(() {
-      _isLogin = true;
-      _email.text = 'student@eduquest.local';
-      _password.text = 'Student@123';
-      _error = null;
     });
   }
 
@@ -67,16 +60,26 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _notice = null;
     });
     try {
       if (_isLogin) {
         await ApiClient.instance.login(_email.text, _password.text);
       } else {
-        await ApiClient.instance.register(
+        final signedIn = await ApiClient.instance.register(
           name: _name.text,
           email: _email.text,
           password: _password.text,
         );
+        if (!signedIn && mounted) {
+          setState(() {
+            _isLogin = true;
+            _loading = false;
+            _password.clear();
+            _confirm.clear();
+            _notice = 'Hãy mở email xác nhận tài khoản. Sau khi xác nhận, quay lại đây để đăng nhập.';
+          });
+        }
       }
       // Thành công: router tự chuyển trang và Provider được dựng lại, không cần setState.
     } catch (error) {
@@ -174,6 +177,10 @@ class _AuthScreenState extends State<AuthScreen> {
                         validator: (value) => value != _password.text ? 'Mật khẩu nhập lại không khớp.' : null,
                       ),
                     ],
+                    if (_notice != null) ...[
+                      const Gap(kSpaceMD),
+                      Text(_notice!, textAlign: TextAlign.center),
+                    ],
                     if (_error != null) ...[
                       const Gap(kSpaceMD),
                       Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.error)),
@@ -190,11 +197,6 @@ class _AuthScreenState extends State<AuthScreen> {
                       onPressed: _loading ? null : _switchMode,
                       child: Text(_isLogin ? 'Chưa có tài khoản? Đăng ký' : 'Đã có tài khoản? Đăng nhập'),
                     ),
-                    if (_isLogin)
-                      TextButton(
-                        onPressed: _loading ? null : _fillDemoAccount,
-                        child: const Text('Điền tài khoản mẫu (student@eduquest.local)'),
-                      ),
                   ],
                 ),
               ),

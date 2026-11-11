@@ -1,5 +1,5 @@
 // lib/screens/quiz/quiz_history_screen.dart
-// Lịch sử làm bài — gọi GET /api/quizzes/attempts/mine.
+// Lịch sử làm bài.
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';

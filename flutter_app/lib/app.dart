@@ -4,13 +4,27 @@
 // Lắng nghe ProfileProvider để áp dụng dark mode động.
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'routes/app_router.dart';
 import 'theme/app_theme.dart';
 import 'providers/profile_provider.dart';
 
-class QuizUpApp extends StatelessWidget {
+class QuizUpApp extends StatefulWidget {
   const QuizUpApp({super.key});
+
+  @override
+  State<QuizUpApp> createState() => _QuizUpAppState();
+}
+
+class _QuizUpAppState extends State<QuizUpApp> {
+  late final GoRouter _router = createAppRouter();
+
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +41,7 @@ class QuizUpApp extends StatelessWidget {
       themeMode: profileProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
 
       // --- Router ---
-      routerConfig: appRouter, // GoRouter đã cấu hình ở app_router.dart
+      routerConfig: _router, // GoRouter đã cấu hình ở app_router.dart
 
       // --- Misc ---
       debugShowCheckedModeBanner: false, // Ẩn banner "DEBUG" góc phải

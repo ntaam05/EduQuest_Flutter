@@ -4,7 +4,6 @@
 // Không hard-code màu trong widget — dùng Theme.of(context) hoặc AppColors.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 /// AppTheme cung cấp theme Light và Dark cho toàn ứng dụng.
@@ -29,64 +28,65 @@ abstract class AppTheme {
     return ThemeData(
       useMaterial3: true, // Bật Material 3
       colorScheme: colorScheme,
+      fontFamily: 'Outfit',
 
       // --- Scaffold ---
       scaffoldBackgroundColor: AppColors.backgroundLight,
 
       // --- Typography ---
       // Dùng Google Fonts "Outfit" — font modern, thân thiện với học sinh
-      textTheme: GoogleFonts.outfitTextTheme().copyWith(
-        displayLarge: GoogleFonts.outfit(
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
         ),
-        displayMedium: GoogleFonts.outfit(
+        displayMedium: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
         ),
-        headlineLarge: GoogleFonts.outfit(
+        headlineLarge: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
         ),
-        headlineMedium: GoogleFonts.outfit(
+        headlineMedium: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
         ),
-        headlineSmall: GoogleFonts.outfit(
+        headlineSmall: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
         ),
-        titleLarge: GoogleFonts.outfit(
+        titleLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
         ),
-        titleMedium: GoogleFonts.outfit(
+        titleMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
           color: AppColors.textPrimary,
         ),
-        bodyLarge: GoogleFonts.outfit(
+        bodyLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: AppColors.textPrimary,
         ),
-        bodyMedium: GoogleFonts.outfit(
+        bodyMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: AppColors.textSecondary,
         ),
-        bodySmall: GoogleFonts.outfit(
+        bodySmall: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w400,
           color: AppColors.textSecondary,
         ),
-        labelLarge: GoogleFonts.outfit(
+        labelLarge: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
           color: AppColors.primary,
@@ -100,7 +100,7 @@ abstract class AppTheme {
         elevation: 0, // Không shadow
         scrolledUnderElevation: 1, // Shadow nhẹ khi scroll
         surfaceTintColor: Colors.transparent,
-        titleTextStyle: GoogleFonts.outfit(
+        titleTextStyle: const TextStyle(fontFamily: 'Outfit',
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
@@ -129,7 +129,7 @@ abstract class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12), // Button radius 12
           ),
-          textStyle: GoogleFonts.outfit(
+          textStyle: const TextStyle(fontFamily: 'Outfit',
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -145,7 +145,7 @@ abstract class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.outfit(
+          textStyle: const TextStyle(fontFamily: 'Outfit',
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -156,7 +156,7 @@ abstract class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
-          textStyle: GoogleFonts.outfit(
+          textStyle: const TextStyle(fontFamily: 'Outfit',
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -181,11 +181,11 @@ abstract class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
-        hintStyle: GoogleFonts.outfit(
+        hintStyle: const TextStyle(fontFamily: 'Outfit',
           color: AppColors.textHint,
           fontSize: 14,
         ),
-        labelStyle: GoogleFonts.outfit(
+        labelStyle: const TextStyle(fontFamily: 'Outfit',
           color: AppColors.textSecondary,
           fontSize: 14,
         ),
@@ -204,7 +204,7 @@ abstract class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.primaryContainer,
         selectedColor: AppColors.primary,
-        labelStyle: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w500),
+        labelStyle: const TextStyle(fontFamily: 'Outfit', fontSize: 12, fontWeight: FontWeight.w500),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         side: BorderSide.none,
@@ -244,61 +244,62 @@ abstract class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
+      fontFamily: 'Outfit',
 
       scaffoldBackgroundColor: AppColors.backgroundDark,
 
-      textTheme: GoogleFonts.outfitTextTheme().copyWith(
-        displayLarge: GoogleFonts.outfit(
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimaryDark,
         ),
-        displayMedium: GoogleFonts.outfit(
+        displayMedium: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimaryDark,
         ),
-        headlineLarge: GoogleFonts.outfit(
+        headlineLarge: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimaryDark,
         ),
-        headlineMedium: GoogleFonts.outfit(
+        headlineMedium: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimaryDark,
         ),
-        headlineSmall: GoogleFonts.outfit(
+        headlineSmall: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimaryDark,
         ),
-        titleLarge: GoogleFonts.outfit(
+        titleLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimaryDark,
         ),
-        titleMedium: GoogleFonts.outfit(
+        titleMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
           color: AppColors.textPrimaryDark,
         ),
-        bodyLarge: GoogleFonts.outfit(
+        bodyLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: AppColors.textPrimaryDark,
         ),
-        bodyMedium: GoogleFonts.outfit(
+        bodyMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: AppColors.textSecondaryDark,
         ),
-        bodySmall: GoogleFonts.outfit(
+        bodySmall: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w400,
           color: AppColors.textSecondaryDark,
         ),
-        labelLarge: GoogleFonts.outfit(
+        labelLarge: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
           color: AppColors.primaryLight,
@@ -311,7 +312,7 @@ abstract class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 1,
         surfaceTintColor: Colors.transparent,
-        titleTextStyle: GoogleFonts.outfit(
+        titleTextStyle: const TextStyle(fontFamily: 'Outfit',
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimaryDark,
@@ -338,7 +339,7 @@ abstract class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.outfit(
+          textStyle: const TextStyle(fontFamily: 'Outfit',
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -353,7 +354,7 @@ abstract class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.outfit(
+          textStyle: const TextStyle(fontFamily: 'Outfit',
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -363,7 +364,7 @@ abstract class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primaryLight,
-          textStyle: GoogleFonts.outfit(
+          textStyle: const TextStyle(fontFamily: 'Outfit',
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -388,11 +389,11 @@ abstract class AppTheme {
           borderSide:
               const BorderSide(color: AppColors.primaryLight, width: 1.5),
         ),
-        hintStyle: GoogleFonts.outfit(
+        hintStyle: const TextStyle(fontFamily: 'Outfit',
           color: AppColors.textSecondaryDark,
           fontSize: 14,
         ),
-        labelStyle: GoogleFonts.outfit(
+        labelStyle: const TextStyle(fontFamily: 'Outfit',
           color: AppColors.textSecondaryDark,
           fontSize: 14,
         ),
@@ -409,7 +410,7 @@ abstract class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.surfaceDark2,
         selectedColor: AppColors.primaryLight,
-        labelStyle: GoogleFonts.outfit(
+        labelStyle: const TextStyle(fontFamily: 'Outfit',
           fontSize: 12,
           fontWeight: FontWeight.w500,
           color: AppColors.textPrimaryDark,

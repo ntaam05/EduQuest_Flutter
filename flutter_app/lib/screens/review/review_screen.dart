@@ -33,7 +33,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     super.dispose();
   }
 
-  // DELETE /api/quizzes/{id} — chỉ chủ bài mới thấy menu này.
+  // chỉ chủ bài mới thấy menu này.
   Future<void> _confirmDelete(Quiz quiz) async {
     final ok = await showDialog<bool>(
       context: context,

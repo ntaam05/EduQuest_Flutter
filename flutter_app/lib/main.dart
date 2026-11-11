@@ -2,8 +2,9 @@
 // Entry point của ứng dụng QuizUp.
 // Khởi động app với MultiProvider bao bọc toàn bộ widget tree.
 
-import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'services/api_client.dart';
 import 'package:provider/provider.dart';
 import 'app.dart';
@@ -11,27 +12,52 @@ import 'providers/quiz_provider.dart';
 import 'providers/upload_provider.dart';
 import 'providers/room_provider.dart';
 import 'providers/profile_provider.dart';
-import 'services/local_database.dart';
+
+// Điền Project URL và Publishable key từ Supabase Dashboard.
+const _supabaseUrl = 'https://mtszmaxtsskhgtvuehcx.supabase.co';
+const _supabasePublishableKey = 'sb_publishable_sP8PcmPQ80KFMGLQzh88Gw_dw2KevT2';
 
 Future<void> main() async {
   // Đảm bảo Flutter binding sẵn sàng trước khi chạy app
   WidgetsFlutterBinding.ensureInitialized();
+  LicenseRegistry.addLicense(() async* {
+    final license = await rootBundle.loadString('assets/fonts/OFL-Outfit.txt');
+    yield LicenseEntryWithLineBreaks(['Outfit'], license);
+  });
 
-  // Chờ API khởi động và khôi phục phiên đăng nhập đã lưu (nếu có). Nếu API không chạy,
-  // màn hình vẫn mở và Provider sẽ hiển thị lỗi thay vì crash ứng dụng.
-  try {
-    await ApiClient.instance.initialize();
-  } catch (_) {
-    // Provider thực hiện retry khi gọi endpoint lần đầu.
+  runApp(
+    EduQuestStartup(
+      ready: ApiClient.instance.initialize(
+        url: const String.fromEnvironment(
+          'SUPABASE_URL',
+          defaultValue: _supabaseUrl,
+        ),
+        publishableKey: const String.fromEnvironment(
+          'SUPABASE_PUBLISHABLE_KEY',
+          defaultValue: _supabasePublishableKey,
+        ),
+      ),
+    ),
+  );
+}
+
+class EduQuestStartup extends StatelessWidget {
+  const EduQuestStartup({super.key, required this.ready});
+
+  final Future<void> ready;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: ready,
+      builder: (context, snapshot) => snapshot.connectionState == ConnectionState.done
+          ? const _SessionRoot()
+          : const MaterialApp(
+              debugShowCheckedModeBanner: false,
+              home: Scaffold(body: Center(child: CircularProgressIndicator())),
+            ),
+    );
   }
-
-  try {
-    await LocalDatabase.instance.initialize();
-  } catch (_) {
-    // SQLite local cache không bắt buộc phải hoạt động khi app chưa sẵn sàng.
-  }
-
-  runApp(const _SessionRoot());
 }
 
 /// Dựng lại toàn bộ Provider mỗi khi đăng nhập/đăng xuất (đổi sessionId)
@@ -48,7 +74,9 @@ class _SessionRoot extends StatelessWidget {
           key: ValueKey(sessionId),
           providers: [
             // ProfileProvider: thông tin user, dark mode, settings
-            ChangeNotifierProvider(create: (_) => ProfileProvider()),
+            ChangeNotifierProvider(
+              create: (_) => ProfileProvider(initialProfile: ApiClient.instance.sessionProfile),
+            ),
 
             // QuizProvider: danh sách quiz, quiz đang làm, kết quả
             ChangeNotifierProvider(create: (_) => QuizProvider()),

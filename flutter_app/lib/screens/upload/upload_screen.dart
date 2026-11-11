@@ -1,8 +1,8 @@
 // lib/screens/upload/upload_screen.dart
-// Màn hình upload tài liệu; backend trích xuất câu hỏi có cấu trúc và lưu vào SQLite.
+// Màn hình upload tài liệu; backend trích xuất câu hỏi có cấu trúc và lưu dữ liệu vào backend.
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:gap/gap.dart';
@@ -38,7 +38,7 @@ class UploadScreen extends StatelessWidget {
               ).animate().fadeIn(duration: 300.ms),
               const Gap(4),
               Text(
-                'Chọn file từ máy tính — hỗ trợ PDF, DOCX, XLSX, TXT',
+                'Chọn tài liệu trên thiết bị — hỗ trợ PDF, DOCX, XLSX, TXT',
                 style: Theme.of(context).textTheme.bodyMedium,
               ).animate().fadeIn(delay: 100.ms),
 
@@ -60,7 +60,7 @@ class UploadScreen extends StatelessWidget {
                 const Gap(kSpaceLG),
               ],
 
-              // ── Tệp đã tải lên (GET /api/uploads/mine) ──
+              // ── Tệp đã tải lên ──
               const _MyUploadsSection(),
 
               const Gap(kSpaceXL),
@@ -213,7 +213,7 @@ class _FilePickerZone extends StatelessWidget {
             ),
             const Gap(kSpaceMD),
             Text(
-              'Nhấn để chọn file từ máy tính',
+              'Nhấn để chọn tài liệu',
               style: theme.textTheme.titleMedium?.copyWith(
                 color: AppColors.primary,
                 fontWeight: FontWeight.w600,
@@ -234,52 +234,33 @@ class _FilePickerZone extends StatelessWidget {
   Future<void> _pickFile(BuildContext context) async {
     final uploadProvider = context.read<UploadProvider>();
 
-    // Android Emulator / điện thoại: không thấy ổ đĩa Windows, nên nhờ API mở hộp thoại
-    // chọn file ngay trên máy tính. Nếu API không hỗ trợ thì quay về chọn file trong thiết bị.
-    final onMobile = !kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
-    if (onMobile) {
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.showSnackBar(const SnackBar(
-        content: Text('Hãy chọn file trong cửa sổ vừa mở trên máy tính...'),
-        duration: Duration(seconds: 8),
-      ));
-      try {
-        final result = await uploadProvider.pickFromComputer();
-        messenger.hideCurrentSnackBar();
-        if (result != PcPickResult.unavailable) return; // đã chọn xong hoặc người dùng hủy
-        messenger.showSnackBar(const SnackBar(
-          content: Text('Không mở được hộp thoại trên máy tính, chuyển sang chọn file trong thiết bị.'),
-        ));
-      } catch (error) {
-        messenger.hideCurrentSnackBar();
-        messenger.showSnackBar(SnackBar(content: Text('Không chọn được file từ máy tính: $error')));
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        dialogTitle: 'Chọn tài liệu câu hỏi',
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'docx', 'xlsx', 'txt'],
+        withData: kIsWeb,
+      );
+      if (!context.mounted || result == null || result.files.isEmpty) return;
+      final file = result.files.single;
+      if (file.size == 0 || file.size > 10 * 1024 * 1024) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tệp phải có nội dung và dung lượng tối đa 10 MB.')),
+        );
         return;
       }
+      uploadProvider.onFileSelected(
+        name: file.name,
+        path: kIsWeb ? '' : (file.path ?? ''),
+        bytes: file.bytes,
+        sizeBytes: file.size,
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không mở được tài liệu. Hãy chọn lại tệp.')),
+      );
     }
-
-    // Mở file picker với các loại file được phép
-    // Desktop (Windows/macOS/Linux) mở hộp thoại chọn file ngay trên máy tính.
-    // Web không có đường dẫn file nên phải đọc nội dung (withData).
-    final result = await FilePicker.platform.pickFiles(
-      dialogTitle: 'Chọn tài liệu câu hỏi',
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'docx', 'xlsx', 'txt'],
-      allowMultiple: false,
-      withData: kIsWeb,
-    );
-
-    if (result == null || result.files.isEmpty) return; // Người dùng hủy
-
-    final file = result.files.first;
-
-    // Cập nhật state trong UploadProvider
-    uploadProvider.onFileSelected(
-      name: file.name,
-      path: kIsWeb ? '' : (file.path ?? ''),
-      bytes: file.bytes,
-      sizeBytes: file.size,
-    );
   }
 }
 
@@ -479,7 +460,7 @@ class _QuizInfoForm extends StatelessWidget {
     if (draft != null && context.mounted) {
       // Bài có câu hỏi hợp lệ tự xuất hiện trong thư viện; bài chưa nhận diện được vẫn là bản nháp.
       await quizProvider.loadQuizzes();
-      _showSuccessDialog(context, draft.title, draft.id);
+      if (context.mounted) _showSuccessDialog(context, draft.title, draft.id);
     }
   }
 

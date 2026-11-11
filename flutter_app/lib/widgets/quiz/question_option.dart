@@ -4,7 +4,6 @@
 
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
-import '../../utils/constants.dart';
 
 class QuestionOption extends StatelessWidget {
   final String indexLabel; // A, B, C, D

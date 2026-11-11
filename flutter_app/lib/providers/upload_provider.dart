@@ -1,6 +1,5 @@
-// Upload file thật lên backend; server lưu file và metadata xuống SQLite.
+// Upload file thật lên backend; server lưu tệp và metadata.
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import '../models/quiz.dart';
@@ -8,11 +7,23 @@ import '../services/api_client.dart';
 
 enum UploadStatus { idle, fileSelected, uploading, success, error }
 
-/// Kết quả mở hộp thoại chọn file trên máy tính chạy API.
-enum PcPickResult { picked, cancelled, unavailable }
-
 class UploadProvider extends ChangeNotifier {
   final ApiClient _api = ApiClient.instance;
+  final int _sessionId = ApiClient.instance.sessionId.value;
+  bool _disposed = false;
+
+  bool get _active => !_disposed && _sessionId == _api.sessionId.value;
+
+  @override
+  void notifyListeners() {
+    if (_active) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
   UploadStatus _status = UploadStatus.idle;
   String? _selectedFileName;
   String? _selectedFilePath;
@@ -27,67 +38,6 @@ class UploadProvider extends ChangeNotifier {
   String? _lastUploadMessage;
   String? _lastParsingMode;
   List<String> _lastUploadWarnings = const [];
-  // ── File trong thư mục inbox trên máy tính chạy API (dùng được từ Android Emulator) ──
-  bool _fromInbox = false;
-  List<Map<String, dynamic>> _inboxFiles = const [];
-  String? _inboxFolder;
-  bool _loadingInbox = false;
-  String? _inboxError;
-
-  List<Map<String, dynamic>> get inboxFiles => _inboxFiles;
-  String? get inboxFolder => _inboxFolder;
-  bool get loadingInbox => _loadingInbox;
-  String? get inboxError => _inboxError;
-  bool get fromInbox => _fromInbox;
-
-  /// GET /api/uploads/inbox
-  Future<void> loadInbox() async {
-    _loadingInbox = true;
-    _inboxError = null;
-    notifyListeners();
-    try {
-      final json = await _api.get('/api/uploads/inbox');
-      _inboxFolder = json['folder']?.toString();
-      _inboxFiles = (json['files'] as List? ?? const [])
-          .whereType<Map>()
-          .map((row) => row.cast<String, dynamic>())
-          .toList();
-    } catch (error) {
-      _inboxError = error.toString();
-    } finally {
-      _loadingInbox = false;
-      notifyListeners();
-    }
-  }
-
-  /// Bảo API mở hộp thoại chọn file của Windows NGAY TRÊN MÁY TÍNH (POST /api/uploads/pick-from-pc).
-  /// Dùng khi app chạy trên Android Emulator/điện thoại. File chọn xong được chọn sẵn để nhập.
-  Future<PcPickResult> pickFromComputer() async {
-    try {
-      final json = await _api.postWithTimeout(
-        '/api/uploads/pick-from-pc',
-        timeout: const Duration(minutes: 6),
-      );
-      if (json['picked'] != true) return PcPickResult.cancelled;
-      selectInboxFile(
-        name: json['name'].toString(),
-        sizeBytes: (json['size_bytes'] as num?)?.toInt() ?? 0,
-      );
-      unawaited(loadInbox());
-      return PcPickResult.picked;
-    } on ApiException catch (error) {
-      if (error.statusCode == 501) return PcPickResult.unavailable;
-      rethrow;
-    }
-  }
-
-  /// Chọn một file đang nằm trong thư mục inbox của máy tính.
-  void selectInboxFile({required String name, required int sizeBytes}) {
-    onFileSelected(name: name, path: '', sizeBytes: sizeBytes);
-    _fromInbox = true;
-    notifyListeners();
-  }
-
   List<Map<String, dynamic>> _myUploads = const [];
   bool _loadingUploads = false;
   String? _uploadsError;
@@ -96,13 +46,13 @@ class UploadProvider extends ChangeNotifier {
   bool get loadingUploads => _loadingUploads;
   String? get uploadsError => _uploadsError;
 
-  /// GET /api/uploads/mine — danh sách file đã tải lên của tài khoản này.
+  /// danh sách file đã tải lên của tài khoản này.
   Future<void> loadMyUploads() async {
     _loadingUploads = true;
     _uploadsError = null;
     notifyListeners();
     try {
-      final rows = await _api.getList('/api/uploads/mine');
+      final rows = await _api.dataList('upload_list');
       _myUploads = rows.whereType<Map>().map((row) => row.cast<String, dynamic>()).toList();
     } catch (error) {
       _uploadsError = error.toString();
@@ -135,7 +85,6 @@ class UploadProvider extends ChangeNotifier {
     _selectedFileName = name;
     _selectedFilePath = path;
     _selectedFileBytes = bytes;
-    _fromInbox = false;
     _selectedFileSizeKb = sizeBytes ~/ 1024;
     _selectedFileExtension = name.split('.').last.toLowerCase();
     _quizTitle = name.replaceAll(RegExp(r'\.[^.]+$'), '').replaceAll('_', ' ');
@@ -145,7 +94,6 @@ class UploadProvider extends ChangeNotifier {
   }
 
   void removeFile() {
-    _fromInbox = false;
     _selectedFileName = null;
     _selectedFilePath = null;
     _selectedFileBytes = null;
@@ -161,7 +109,7 @@ class UploadProvider extends ChangeNotifier {
   void updateDescription(String value) { _quizDescription = value; notifyListeners(); }
 
   Future<Quiz?> uploadQuiz() async {
-    if (!hasFile || (!_fromInbox && (_selectedFilePath?.isEmpty ?? true) && _selectedFileBytes == null)) {
+    if (!hasFile || ((_selectedFilePath?.isEmpty ?? true) && _selectedFileBytes == null)) {
       _status = UploadStatus.error;
       _errorMessage = 'Không đọc được nội dung file. Hãy chọn lại file rồi thử lại.';
       notifyListeners();
@@ -178,32 +126,22 @@ class UploadProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      final json = _fromInbox
-          ? await _api.post('/api/uploads/inbox/import', {
-              'file_name': _selectedFileName,
-              'title': _quizTitle.trim(),
-              'subject': _quizSubject.trim(),
-              'description': _quizDescription.trim(),
-            })
-          : await _api.uploadQuizFile(
-              path: _selectedFilePath,
-              bytes: _selectedFileBytes,
-              fileName: _selectedFileName!,
-              title: _quizTitle.trim(),
-              subject: _quizSubject.trim(),
-              description: _quizDescription.trim(),
-            );
+      final json = await _api.uploadQuizFile(
+        path: _selectedFilePath,
+        bytes: _selectedFileBytes,
+        fileName: _selectedFileName!,
+        title: _quizTitle.trim(),
+        subject: _quizSubject.trim(),
+        description: _quizDescription.trim(),
+      );
       _lastUploadQuestionCount = (json['questions_count'] as num?)?.toInt() ?? 0;
       _lastUploadMessage = json['message']?.toString();
       _lastParsingMode = json['parsing_mode']?.toString();
       _lastUploadWarnings = (json['warnings'] as List? ?? const []).map((value) => value.toString()).toList();
-      final quizId = json['quiz_id']?.toString() ?? 'draft_${DateTime.now().millisecondsSinceEpoch}';
-      final rawQuiz = await _api.get('/api/quizzes/$quizId');
-      final quiz = Quiz.fromJson(rawQuiz);
+      final quiz = Quiz.fromJson((json['quiz'] as Map).cast<String, dynamic>());
       _status = UploadStatus.success;
       notifyListeners();
-      unawaited(loadMyUploads());
-      unawaited(loadInbox());
+      if (_active) unawaited(loadMyUploads());
       return quiz;
     } catch (error) {
       _status = UploadStatus.error;
@@ -214,7 +152,6 @@ class UploadProvider extends ChangeNotifier {
   }
 
   void reset() {
-    _fromInbox = false;
     _status = UploadStatus.idle;
     _selectedFileName = null;
     _selectedFilePath = null;

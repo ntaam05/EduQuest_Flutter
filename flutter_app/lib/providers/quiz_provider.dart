@@ -5,10 +5,23 @@ import 'package:flutter/foundation.dart';
 import '../models/question.dart';
 import '../models/quiz.dart';
 import '../services/api_client.dart';
-import '../services/local_database.dart';
 
 class QuizProvider extends ChangeNotifier {
   final ApiClient _api = ApiClient.instance;
+  final int _sessionId = ApiClient.instance.sessionId.value;
+  bool _disposed = false;
+  bool get _active => !_disposed && _sessionId == _api.sessionId.value;
+
+  @override
+  void notifyListeners() {
+    if (_active) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
   // Backend is the source of truth; never show placeholder quizzes as if they were persisted.
   List<Quiz> _quizzes = [];
   List<Quiz> get quizzes => List.unmodifiable(_quizzes);
@@ -41,49 +54,18 @@ class QuizProvider extends ChangeNotifier {
   QuizResult? _lastResult;
   QuizResult? get lastResult => _lastResult;
 
-  // Không tự gọi danh sách quiz ở constructor; nhưng vẫn có thể nạp cache SQLite
-  // để ứng dụng có dữ liệu offline theo chuẩn bài học SQLite/SQFlite.
-  QuizProvider() {
-    unawaited(_hydrateLocalQuizzes());
-  }
-
-  Future<void> _hydrateLocalQuizzes() async {
-    try {
-      final cachedRows = await LocalDatabase.instance.loadQuizCache();
-      if (cachedRows.isEmpty) return;
-      _quizzes = cachedRows.map((row) => Quiz.fromJson(row)).toList();
-      notifyListeners();
-    } catch (_) {
-      // Bỏ qua khi cache chưa sẵn sàng.
-    }
-  }
+  QuizProvider() { if (_api.isAuthenticated) unawaited(loadQuizzes()); }
 
   Future<void> loadQuizzes() async {
-    if (!_api.isAuthenticated) {
-      _isLoading = false;
-      _errorMessage = null;
-      notifyListeners();
-      return;
-    }
-
+    if (!_active) return;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
     try {
-      final rows = await _api.getList('/api/quizzes');
-      final mapped = rows.map((row) => Quiz.fromJson((row as Map).cast<String, dynamic>())).toList();
-      _quizzes = mapped;
-      await LocalDatabase.instance.saveQuizCache(
-        mapped.map((quiz) => quiz.toJson()).toList(),
-      );
+      final rows = await _api.dataList('quiz_list');
+      _quizzes = rows.map((row) => Quiz.fromJson((row as Map).cast<String, dynamic>())).toList();
     } catch (error) {
-      final cached = await LocalDatabase.instance.loadQuizCache();
-      if (cached.isNotEmpty) {
-        _quizzes = cached.map((row) => Quiz.fromJson(row)).toList();
-        _errorMessage = null;
-      } else {
-        _errorMessage = error.toString();
-      }
+      _errorMessage = error.toString();
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -105,7 +87,7 @@ class QuizProvider extends ChangeNotifier {
 
   Future<void> _createAttempt(String quizId) async {
     try {
-      final response = await _api.post('/api/quizzes/$quizId/attempts');
+      final response = await _api.data('attempt_start', {'quiz_id': quizId});
       _attemptId = (response['id'] as num).toInt();
       _startTime = DateTime.now();
     } catch (error) {
@@ -151,7 +133,8 @@ class QuizProvider extends ChangeNotifier {
     final elapsed = _startTime == null ? Duration.zero : DateTime.now().difference(_startTime!);
     final answers = <String, int>{};
     _selectedAnswers.forEach((key, value) => answers[key.toString()] = value);
-    final response = await _api.post('/api/quizzes/attempts/$_attemptId/submit', {
+    final response = await _api.data('attempt_submit', {
+      'attempt_id': _attemptId,
       'answers': answers,
       'time_spent_seconds': elapsed.inSeconds,
     });
@@ -181,23 +164,26 @@ class QuizProvider extends ChangeNotifier {
       progress: 1,
     );
 
+    final savedAnswers = (response['answers'] as Map? ?? const {}).map(
+      (key, value) => MapEntry(int.parse(key.toString()), (value as num).toInt()),
+    );
     final result = QuizResult(
       quiz: reviewedQuiz,
       correctAnswers: correct,
       totalQuestions: total,
       timeSpent: Duration(seconds: (response['time_spent_seconds'] as num?)?.toInt() ?? elapsed.inSeconds),
-      selectedAnswers: Map<int, int>.from(_selectedAnswers),
+      selectedAnswers: savedAnswers,
     );
     _lastResult = result;
     _currentQuiz = reviewedQuiz;
     final index = _quizzes.indexWhere((q) => q.id == reviewedQuiz.id);
     if (index >= 0) _quizzes[index] = reviewedQuiz;
     notifyListeners();
-    unawaited(loadQuizzes());
+    if (_active) unawaited(loadQuizzes());
     return result;
   }
 
-  // ───────── Lịch sử làm bài: GET /api/quizzes/attempts/mine ─────────
+  // ───────── Lịch sử làm bài ─────────
   List<Map<String, dynamic>> _attempts = const [];
   bool _loadingAttempts = false;
   String? _attemptsError;
@@ -210,7 +196,7 @@ class QuizProvider extends ChangeNotifier {
     _attemptsError = null;
     notifyListeners();
     try {
-      final rows = await _api.getList('/api/quizzes/attempts/mine');
+      final rows = await _api.dataList('attempt_list');
       _attempts = rows.whereType<Map>().map((row) => row.cast<String, dynamic>()).toList();
     } catch (error) {
       _attemptsError = error.toString();
@@ -220,7 +206,7 @@ class QuizProvider extends ChangeNotifier {
     }
   }
 
-  // ───────── Tạo bài thủ công: POST /api/quizzes ─────────
+  // ───────── Tạo bài thủ công ─────────
   /// [questions]: mỗi phần tử có dạng
   /// {'text': ..., 'options': [{'text': ...}, ...], 'correct_answer_index': n, 'explanation': ...}
   Future<Quiz> createQuiz({
@@ -231,7 +217,7 @@ class QuizProvider extends ChangeNotifier {
     String? iconEmoji,
     required List<Map<String, dynamic>> questions,
   }) async {
-    final json = await _api.post('/api/quizzes', {
+    final json = await _api.data('quiz_create', {
       'title': title,
       'subject': subject,
       'description': (description == null || description.trim().isEmpty) ? null : description.trim(),
@@ -244,9 +230,9 @@ class QuizProvider extends ChangeNotifier {
     return quiz;
   }
 
-  // ───────── Xóa bài: DELETE /api/quizzes/{id} ─────────
+  // ───────── Xóa bài ─────────
   Future<void> deleteQuiz(String quizId) async {
-    await _api.delete('/api/quizzes/$quizId');
+    await _api.deleteQuiz(quizId);
     _quizzes.removeWhere((quiz) => quiz.id == quizId);
     notifyListeners();
   }

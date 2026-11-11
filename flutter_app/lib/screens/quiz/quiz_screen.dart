@@ -4,12 +4,10 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:gap/gap.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import '../../models/quiz.dart';
 import '../../providers/quiz_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/constants.dart';

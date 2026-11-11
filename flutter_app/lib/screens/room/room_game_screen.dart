@@ -40,16 +40,13 @@ class _RoomGameScreenState extends State<RoomGameScreen> {
   bool _initializing = true;
   String? _error;
   bool _refreshing = false;
+  bool _refreshPending = false;
+  Duration _serverOffset = Duration.zero;
   bool _soundOn = SoundService.instance.enabled;
 
   @override
   void initState() {
     super.initState();
-    _realtime.on('QuestionStarted', _onQuestionStarted);
-    _realtime.on('RoundProgress', _onRoundProgress);
-    _realtime.on('QuestionResult', _onQuestionResult);
-    _realtime.on('GameFinished', _onGameFinished);
-    _realtime.on('RoomUpdated', _onRoomUpdated);
     WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
     _clockTimer = Timer.periodic(const Duration(milliseconds: 250), (_) => _updateClock());
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => _refreshSnapshot());
@@ -60,29 +57,20 @@ class _RoomGameScreenState extends State<RoomGameScreen> {
     _clockTimer?.cancel();
     _pollTimer?.cancel();
     unawaited(SoundService.instance.stopAll());
-    final id = _roomId;
-    if (id != null) unawaited(_realtime.leaveRoom(id));
     unawaited(_realtime.dispose());
     super.dispose();
   }
 
   Future<void> _initialize() async {
+    if (!mounted) return;
+    final provider = context.read<RoomProvider>();
     try {
-      await _api.initialize();
-      final room = await context.read<RoomProvider>().loadRoomByCode(widget.roomCode);
-      if (room == null) throw Exception(context.read<RoomProvider>().errorMessage ?? 'Không tìm thấy phòng.');
+      final room = await provider.loadRoomByCode(widget.roomCode);
+      if (!mounted) return;
+      if (room == null) throw Exception(provider.errorMessage ?? 'Không tìm thấy phòng.');
       _roomId = room.id;
-      try {
-        final snapshot = await _realtime.joinRoom(room.id);
-        if (!mounted) return;
-        _applySnapshot(snapshot);
-      } catch (hubError) {
-        // Keep the game screen usable through REST polling if SignalR is temporarily unavailable.
-        final snapshot = await context.read<RoomProvider>().loadGameState(room.id);
-        if (!mounted) return;
-        _applySnapshot(snapshot);
-        _error = 'Kết nối realtime chưa sẵn sàng; đang đồng bộ dự phòng qua API. $hubError';
-      }
+      _realtime.subscribe(room.id, () => unawaited(_refreshSnapshot()));
+      await _refreshSnapshot();
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
@@ -91,20 +79,37 @@ class _RoomGameScreenState extends State<RoomGameScreen> {
   }
 
   Future<void> _refreshSnapshot() async {
-    if (!mounted || _roomId == null || _refreshing) return;
+    if (!mounted || _roomId == null || _mode == 'finished') return;
+    if (_refreshing) {
+      _refreshPending = true;
+      return;
+    }
     _refreshing = true;
     try {
+      final started = DateTime.now().toUtc();
       final snapshot = await context.read<RoomProvider>().loadGameState(_roomId!);
-      if (mounted) _applySnapshot(snapshot);
+      if (mounted) {
+        final serverTime = DateTime.tryParse(snapshot['server_time']?.toString() ?? '');
+        if (serverTime != null) {
+          final halfRtt = DateTime.now().toUtc().difference(started).inMicroseconds ~/ 2;
+          _serverOffset = serverTime.toUtc().difference(started.add(Duration(microseconds: halfRtt)));
+        }
+        _applySnapshot(snapshot);
+      }
     } catch (error) {
       if (mounted && _error == null) setState(() => _error = error.toString());
     } finally {
       _refreshing = false;
+      if (_refreshPending) {
+        _refreshPending = false;
+        unawaited(_refreshSnapshot());
+      }
     }
   }
 
   void _applySnapshot(Map<String, dynamic> snapshot) {
     final mode = snapshot['mode']?.toString() ?? 'lobby';
+    if (_mode == 'finished' && mode != 'finished') return;
     final leaderboard = snapshot['leaderboard'];
     if (leaderboard is List) _leaderboard = leaderboard;
     final roomSnapshot = _asMap(snapshot['room']);
@@ -115,7 +120,7 @@ class _RoomGameScreenState extends State<RoomGameScreen> {
       final event = _asMap(snapshot['question_event']);
       if (event != null) {
         final incomingRound = _int(event['current_round_number']);
-        // An in-flight REST poll can arrive after the server has already published this round's result.
+        // An in-flight snapshot can arrive after the server has already published this round's result.
         if (!(_mode == 'results' && incomingRound <= _roundNumber) && incomingRound >= _roundNumber) {
           final incomingQuestionId = _asMap(event['question'])?['id']?.toString();
           final currentQuestionId = _asMap(_questionEvent?['question'])?['id']?.toString();
@@ -126,7 +131,7 @@ class _RoomGameScreenState extends State<RoomGameScreen> {
           if (snapshot['my_answer_index'] is num) {
             _selectedIndex = (snapshot['my_answer_index'] as num).toInt();
           } else if (!preserveLocalAnswer) {
-            _selectedIndex = null;
+            if (!_submitting) _selectedIndex = null;
           }
           _answeredCount = _int(snapshot['answered_count']);
         }
@@ -149,6 +154,8 @@ class _RoomGameScreenState extends State<RoomGameScreen> {
     } else if (mode == 'finished') {
       _mode = 'finished';
       _result = null;
+      _pollTimer?.cancel();
+      _clockTimer?.cancel();
     } else if (_mode == 'loading') {
       _mode = 'lobby';
     }
@@ -169,6 +176,7 @@ class _RoomGameScreenState extends State<RoomGameScreen> {
     if (isNewQuestion) {
       _selectedIndex = null;
       _hasAnswered = false;
+      _submitting = false;
       _answeredCount = 0;
     } else if (!preserveAnswered) {
       _selectedIndex = null;
@@ -176,57 +184,8 @@ class _RoomGameScreenState extends State<RoomGameScreen> {
     }
     final end = DateTime.tryParse(event['ends_at']?.toString() ?? '');
     if (end != null) {
-      final milliseconds = end.toUtc().difference(DateTime.now().toUtc()).inMilliseconds;
+      final milliseconds = end.toUtc().difference(DateTime.now().toUtc().add(_serverOffset)).inMilliseconds;
       _secondsLeft = milliseconds <= 0 ? 0 : (milliseconds / 1000).ceil();
-    }
-  }
-
-  void _onQuestionStarted(Map<String, dynamic> event) {
-    if (!mounted) return;
-    final incomingRound = _int(event['current_round_number'], fallback: _int(event['question_number']));
-    if (incomingRound < _roundNumber) return;
-    setState(() => _setQuestionEvent(event));
-  }
-
-  void _onRoundProgress(Map<String, dynamic> event) {
-    if (!mounted || event['room_id']?.toString() != _roomId) return;
-    if (_questionEvent != null && event['question_id']?.toString() != _asMap(_questionEvent!['question'])?['id']?.toString()) return;
-    setState(() {
-      _answeredCount = _int(event['answered_count'], fallback: _answeredCount);
-      _totalPlayers = _int(event['total_players'], fallback: _totalPlayers);
-    });
-  }
-
-  void _onQuestionResult(Map<String, dynamic> event) {
-    if (!mounted || event['room_id']?.toString() != _roomId) return;
-    final number = _int(event['question_number']);
-    if (number < _roundNumber) return;
-    setState(() {
-      _roundNumber = number;
-      _result = event;
-      _leaderboard = event['leaderboard'] is List ? event['leaderboard'] as List : _leaderboard;
-      _mode = 'results';
-      _answeredCount = _int(event['answered_count']);
-      _totalPlayers = _int(event['total_players']);
-      _secondsLeft = 0;
-    });
-  }
-
-  void _onGameFinished(Map<String, dynamic> event) {
-    if (!mounted || event['room_id']?.toString() != _roomId) return;
-    setState(() {
-      _mode = 'finished';
-      _leaderboard = event['leaderboard'] is List ? event['leaderboard'] as List : _leaderboard;
-      _result = null;
-      _secondsLeft = 0;
-    });
-  }
-
-  void _onRoomUpdated(Map<String, dynamic> event) {
-    if (!mounted || event['id']?.toString() != _roomId) return;
-    final players = event['players'];
-    if (players is List && players.length != _totalPlayers) {
-      setState(() => _totalPlayers = players.length);
     }
   }
 
@@ -234,7 +193,7 @@ class _RoomGameScreenState extends State<RoomGameScreen> {
     if (!mounted || _mode != 'question' || _questionEvent == null) return;
     final end = DateTime.tryParse(_questionEvent!['ends_at']?.toString() ?? '');
     if (end == null) return;
-    final seconds = end.toUtc().difference(DateTime.now().toUtc()).inMilliseconds;
+    final seconds = end.toUtc().difference(DateTime.now().toUtc().add(_serverOffset)).inMilliseconds;
     final next = seconds <= 0 ? 0 : (seconds / 1000).ceil();
     if (next != _secondsLeft) {
       final previous = _secondsLeft;
@@ -263,50 +222,32 @@ class _RoomGameScreenState extends State<RoomGameScreen> {
     final question = _asMap(_questionEvent!['question']);
     final questionId = int.tryParse(question?['id']?.toString() ?? '');
     if (questionId == null) return;
+    final round = _roundNumber;
     setState(() {
       _submitting = true;
       _error = null;
       _selectedIndex = index;
     });
     try {
-      try {
-        await _realtime.submitAnswer(roomId: _roomId!, questionId: questionId, selectedAnswerIndex: index);
-      } catch (_) {
-        // REST submits through the same server-side validator and still broadcasts RoundProgress.
-        try {
-          await _api.post('/api/rooms/$_roomId/answers', {
-            'question_id': questionId,
-            'selected_answer_index': index,
-          });
-        } catch (_) {
-          // A SignalR/REST call can succeed just before the response is lost. Check server state, including a result already published.
-          final snapshot = await context.read<RoomProvider>().loadGameState(_roomId!);
-          var accepted = snapshot['mode'] == 'question' && snapshot['has_answered'] == true;
-          final result = _asMap(snapshot['result']);
-          final resultRows = result?['round_scores'];
-          if (resultRows is List) {
-            final myId = context.read<ProfileProvider>().user.id;
-            accepted = accepted || resultRows.any((row) {
-              final value = _asMap(row);
-              return value?['user_id']?.toString() == myId && value?['answered'] == true;
-            });
-          }
-          if (!accepted) rethrow;
-        }
-      }
-      if (!mounted) return;
+      await _api.room('answer', {
+        'room_id': _roomId,
+        'question_id': questionId,
+        'selected_answer_index': index,
+      });
+      if (!mounted || round != _roundNumber || _mode != 'question') return;
       setState(() {
         _hasAnswered = true;
         _submitting = false;
         _error = null;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || round != _roundNumber || _mode != 'question') return;
       setState(() {
         _submitting = false;
         _selectedIndex = null;
         _error = error.toString();
       });
+      unawaited(_refreshSnapshot());
     }
   }
 
@@ -524,7 +465,7 @@ class _RoomGameScreenState extends State<RoomGameScreen> {
       FilledButton.icon(
         onPressed: () async {
           await context.read<RoomProvider>().leaveRoom();
-          if (context.mounted) context.go(AppRoutes.rooms);
+          if (mounted) context.go(AppRoutes.rooms);
         },
         icon: const Icon(Icons.home_outlined), label: const Text('Về phòng thi'),
       ),

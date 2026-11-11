@@ -59,6 +59,9 @@ class ProfileScreen extends StatelessWidget {
 
               const Gap(kSpaceLG),
 
+              if (profileProvider.errorMessage case final message?)
+                Text(message, style: const TextStyle(color: AppColors.error)),
+
               // ── Statistics Grid ──
               const SectionHeader(title: 'Thống kê'),
               const Gap(kSpaceMD),
@@ -87,116 +90,65 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Future<void> _showEditProfileDialog(BuildContext context, ProfileProvider provider) async {
+    var enteredName = provider.user.name;
+    var enteredEmoji = provider.user.avatarEmoji ?? '👤';
+    var saving = false;
+    String? error;
     await showDialog<void>(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => _EditProfileDialog(provider: provider),
-    );
-  }
-}
-
-class _EditProfileDialog extends StatefulWidget {
-  const _EditProfileDialog({required this.provider});
-
-  final ProfileProvider provider;
-
-  @override
-  State<_EditProfileDialog> createState() => _EditProfileDialogState();
-}
-
-class _EditProfileDialogState extends State<_EditProfileDialog> {
-  late final TextEditingController _nameController;
-  late final TextEditingController _emojiController;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.provider.user.name);
-    _emojiController = TextEditingController(text: widget.provider.user.avatarEmoji ?? '👤');
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emojiController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final trimmedName = _nameController.text.trim();
-    final trimmedEmoji = _emojiController.text.trim();
-    if (trimmedName.isEmpty || !mounted) return;
-
-    setState(() => _saving = true);
-    try {
-      await widget.provider.updateProfile(
-        name: trimmedName,
-        avatarEmoji: trimmedEmoji.isEmpty ? '👤' : trimmedEmoji,
-      );
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final emojiPreview = _emojiController.text.trim();
-
-    return AlertDialog(
-      title: const Text('Chỉnh sửa hồ sơ'),
-      content: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.7,
-          ),
-          child: Column(
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Chỉnh sửa hồ sơ'),
+          content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: _nameController,
+              TextFormField(
+                initialValue: enteredName,
+                onChanged: (value) => enteredName = value,
                 maxLength: 120,
-                decoration: const InputDecoration(labelText: 'Tên hiển thị'),
+                decoration: InputDecoration(labelText: 'Tên hiển thị', errorText: error),
               ),
-              const Gap(kSpaceMD),
-              TextField(
-                controller: _emojiController,
+              TextFormField(
+                initialValue: enteredEmoji,
+                onChanged: (value) => enteredEmoji = value,
                 maxLength: 16,
                 decoration: const InputDecoration(labelText: 'Avatar (emoji)'),
               ),
-              const Gap(kSpaceSM),
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Center(
-                  child: Text(
-                    emojiPreview.isEmpty ? '👤' : emojiPreview,
-                    style: const TextStyle(fontSize: 36),
-                  ),
-                ),
-              ),
             ],
           ),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(dialogContext),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: saving ? null : () async {
+                final name = enteredName.trim();
+                if (name.isEmpty) {
+                  setState(() => error = 'Vui lòng nhập tên hiển thị.');
+                  return;
+                }
+                setState(() { saving = true; error = null; });
+                final emoji = enteredEmoji.trim();
+                final saved = await provider.updateProfile(
+                  name: name,
+                  avatarEmoji: emoji.isEmpty ? '👤' : emoji,
+                );
+                if (!dialogContext.mounted) return;
+                if (saved) {
+                  Navigator.pop(dialogContext);
+                } else {
+                  setState(() {
+                    saving = false;
+                    error = provider.errorMessage ?? 'Không thể lưu hồ sơ.';
+                  });
+                }
+              },
+              child: Text(saving ? 'Đang lưu…' : 'Lưu'),
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.of(context, rootNavigator: true).pop(),
-          child: const Text('Hủy'),
-        ),
-        ElevatedButton(
-          onPressed: _saving ? null : _save,
-          child: Text(_saving ? 'Đang lưu...' : 'Lưu'),
-        ),
-      ],
     );
   }
 }
@@ -211,7 +163,6 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -576,7 +527,7 @@ class _SettingsSection extends StatelessWidget {
           ),
           _Divider(),
 
-          // Lịch sử làm bài (GET /api/quizzes/attempts/mine)
+          // Lịch sử làm bài
           _SettingsTile(
             icon: Icons.history_rounded,
             iconColor: AppColors.primary,
@@ -607,7 +558,7 @@ class _SettingsSection extends StatelessWidget {
           ),
           _Divider(),
 
-          // Đổi mật khẩu (POST /api/auth/change-password)
+          // Đổi mật khẩu
           _SettingsTile(
             icon: Icons.lock_outline_rounded,
             iconColor: AppColors.primary,
@@ -706,7 +657,7 @@ class _SettingsTile extends StatelessWidget {
   }
 }
 
-/// Hộp thoại đổi mật khẩu — gọi POST /api/auth/change-password.
+/// Hộp thoại đổi mật khẩu.
 Future<void> _showChangePasswordDialog(BuildContext context) async {
   final current = TextEditingController();
   final next = TextEditingController();
@@ -761,10 +712,7 @@ Future<void> _showChangePasswordDialog(BuildContext context) async {
                       error = null;
                     });
                     try {
-                      await ApiClient.instance.post('/api/auth/change-password', {
-                        'current_password': current.text,
-                        'new_password': next.text,
-                      });
+                      await ApiClient.instance.changePassword(current.text, next.text);
                       if (ctx.mounted) Navigator.of(ctx).pop();
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -772,6 +720,7 @@ Future<void> _showChangePasswordDialog(BuildContext context) async {
                         );
                       }
                     } catch (e) {
+                      if (!ctx.mounted) return;
                       setState(() {
                         busy = false;
                         error = e.toString();

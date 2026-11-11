@@ -11,7 +11,6 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/quiz_provider.dart';
-import '../../models/quiz.dart';
 import '../../routes/app_router.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/constants.dart';

@@ -67,8 +67,8 @@ class AppRoutes {
 // ──────────────────────────────────────────
 // ROUTER CONFIGURATION
 // ──────────────────────────────────────────
-final GoRouter appRouter = GoRouter(
-  initialLocation: AppRoutes.home, // Mở app ở tab Home
+GoRouter createAppRouter() => GoRouter(
+  initialLocation: ApiClient.instance.isAuthenticated ? AppRoutes.home : AppRoutes.login,
 
   // Chưa đăng nhập → luôn về màn Đăng nhập; đã đăng nhập mà đang ở màn Đăng nhập → về Trang chủ.
   refreshListenable: ApiClient.instance.loggedIn,

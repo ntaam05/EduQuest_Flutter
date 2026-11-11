@@ -1,5 +1,5 @@
 // lib/screens/quiz/quiz_create_screen.dart
-// Tạo bài trắc nghiệm thủ công — gọi POST /api/quizzes.
+// Tạo bài trắc nghiệm thủ công.
 
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
