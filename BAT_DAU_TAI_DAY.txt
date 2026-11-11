@@ -1,6 +1,0 @@
-EDUQUEST - SUPABASE
-
-1. Mo TRIEN_KHAI_VA_BUILD_APK.md.
-2. Chay cac lenh Supabase tu thu muc goc chua thu muc supabase.
-3. Mo flutter_app trong Android Studio.
-4. Truyen SUPABASE_URL va SUPABASE_PUBLISHABLE_KEY khi build APK.
